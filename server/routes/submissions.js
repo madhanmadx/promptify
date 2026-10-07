@@ -1,7 +1,7 @@
 import { safeRouter as Router } from '../safeRouter.js';
 import crypto from 'node:crypto';
 import multer from 'multer';
-import { config, scoringTotal, artUrl } from '../config.js';
+import { config, scoringTotal, artUrl, baseUrl } from '../config.js';
 import { Submission, STATUS } from '../models/Submission.js';
 import { TimerSession } from '../models/TimerSession.js';
 import { Counter } from '../models/Counter.js';
@@ -44,7 +44,7 @@ export function toBuffer(value) {
 }
 
 /** Public event metadata consumed by the frontend. */
-router.get('/meta', async (_req, res) => {
+router.get('/meta', async (req, res) => {
   const settings = await getSettings();
   res.json({
     event: config.event,
@@ -56,6 +56,10 @@ router.get('/meta', async (_req, res) => {
     leaderboardRevealed: settings.leaderboardRevealed,
     challengeMinutes: config.event.challengeMinutes,
     challengeGraceMinutes: config.event.challengeGraceMinutes,
+    // Where a phone must go. `localhost` here means the QR board would be
+    // unscannable — the board shows a warning until PUBLIC_URL is set.
+    portalUrl: baseUrl(req),
+    publicUrlConfigured: Boolean(config.publicUrl),
   });
 });
 

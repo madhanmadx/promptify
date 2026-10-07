@@ -692,6 +692,24 @@ input[type=range]::-moz-range-thumb {
 .qr-board .qr-steps { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 12px; font-size: clamp(12px, 2vw, 15px); font-weight: 700; color: #303647; }
 .qr-actions { display: flex; gap: 12px; justify-content: center; margin-top: 26px; flex-wrap: wrap; }
 
+/* Destination shown under the code — an operator must be able to read what a
+   phone will open without scanning it themselves. */
+.qr-url { margin-top: 18px; display: grid; gap: 7px; justify-items: center; }
+.qr-url-label { font-size: 11px; letter-spacing: .3em; text-transform: uppercase; font-weight: 800; color: #7c5cff; }
+.qr-url code {
+  display: inline-block; max-width: 100%; padding: 8px 16px; border-radius: 999px;
+  background: #f1f2f7; border: 1px solid #d9dbe6; color: #06070b;
+  font-size: clamp(12px, 2.6vw, 15px); font-weight: 700;
+  word-break: break-all; text-align: center;
+}
+.qr-warning {
+  margin-top: 16px; padding: 14px 16px; border-radius: 16px; text-align: left;
+  background: #fff4e5; border: 2px solid #ff9800; color: #6b3f00;
+  font-size: 14px; line-height: 1.55;
+}
+.qr-warning code { background: rgba(0, 0, 0, .08); padding: 1px 6px; border-radius: 6px; font-weight: 700; }
+.qr-warning strong { display: block; margin-bottom: 4px; color: #b34700; }
+
 /* ==========================================================================
    Toast + modal
    ========================================================================== */

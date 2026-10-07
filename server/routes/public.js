@@ -1,6 +1,6 @@
 import { safeRouter as Router } from '../safeRouter.js';
 import QRCode from 'qrcode';
-import { config, artUrl } from '../config.js';
+import { config, artUrl, baseUrl } from '../config.js';
 import { Submission, STATUS } from '../models/Submission.js';
 import { Score } from '../models/Score.js';
 import { getSettings } from '../models/Setting.js';
@@ -145,7 +145,7 @@ router.get('/gallery', async (req, res) => {
  */
 router.get('/qr', async (req, res) => {
   const path = String(req.query.path || '/#/submit');
-  const base = config.publicUrl || `${req.protocol}://${req.get('host')}`;
+  const base = baseUrl(req);
   const url = `${base}${path.startsWith('/') ? '' : '/'}${path}`;
 
   const width = Math.min(1200, Math.max(180, Number(req.query.size) || 480));
@@ -161,6 +161,7 @@ router.get('/qr', async (req, res) => {
       color: { dark: `#${dark}`, light: `#${light}` },
     });
     res.set('Content-Type', 'image/png');
+    res.set('X-QR-URL', url); // so operators can verify what a code encodes
     res.set('Cache-Control', 'public, max-age=600');
     res.send(png);
   } catch (err) {

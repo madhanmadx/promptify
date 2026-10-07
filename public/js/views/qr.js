@@ -1,8 +1,30 @@
 import { esc, toast } from '../ui.js';
+import { getMeta } from '../api.js';
 
 export async function qrBoard(root) {
   const origin = location.origin;
   const qrSrc = `${origin}/api/qr?path=${encodeURIComponent('/#/submit')}&size=520`;
+
+  // The code itself is drawn server-side from PUBLIC_URL — show it here so the
+  // organizer can see what a phone will open *before* printing the board.
+  let portal = origin;
+  try {
+    const meta = await getMeta();
+    portal = meta.portalUrl || origin;
+  } catch {
+    /* offline → keep the origin we already have */
+  }
+  const portalLink = `${String(portal).replace(/\/+$/, '')}/#/submit`;
+  const isLoopback = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])([:/]|$)/i.test(portalLink);
+  const warn = isLoopback
+    ? `<div class="qr-warning" role="alert">
+         <strong>This code will not open on a phone.</strong>
+         It points at <code>localhost</code> — that is <em>the phone's own</em> computer,
+         so scanning shows nothing. Set <code>PUBLIC_URL</code> in <code>.env</code> to this
+         machine's Wi-Fi address (e.g. <code>http://10.219.179.143:3000</code>), restart the
+         server and reload this page.
+       </div>`
+    : '';
 
   root.innerHTML = `
     <div class="page">
@@ -27,6 +49,12 @@ export async function qrBoard(root) {
             <img src="${qrSrc}" alt="QR code linking to the Promptify submission portal"
                  onerror="this.src='/api/qr?path=%2F%2F%23%2Fsubmit&size=520'" />
           </div>
+
+          <div class="qr-url">
+            <span class="qr-url-label">Opens</span>
+            <code>${esc(portalLink)}</code>
+          </div>
+          ${warn}
 
           <div class="qr-brand">PROMPTIFY</div>
           <div class="qr-steps">
@@ -64,12 +92,11 @@ export async function qrBoard(root) {
 
   root.querySelector('#printBtn').addEventListener('click', () => window.print());
   root.querySelector('#copyBtn').addEventListener('click', async () => {
-    const link = `${origin}/#/submit`;
     try {
-      await navigator.clipboard.writeText(link);
+      await navigator.clipboard.writeText(portalLink);
       toast('Portal link copied to clipboard.', 'success');
     } catch {
-      window.prompt('Copy this link:', link);
+      window.prompt('Copy this link:', portalLink);
     }
   });
 }

@@ -81,3 +81,14 @@ export const statusKeys = config.statuses.map((s) => s.key);
 /** Bump when the artwork response format changes, so caches refresh themselves. */
 export const ART_VERSION = '2';
 export const artUrl = (id) => `/api/artwork/${encodeURIComponent(id)}?v=${ART_VERSION}`;
+
+/**
+ * The URL a phone must type to reach this server.
+ *
+ * PUBLIC_URL wins — it is the only way a printed QR code can work, because a
+ * page served from `localhost` encodes the *scanner's own* localhost. Falls
+ * back to the request's host for local development.
+ */
+export const baseUrl = (req) =>
+  config.publicUrl ||
+  (req ? `${req.protocol}://${req.get('host')}` : `http://localhost:${config.port}`);
