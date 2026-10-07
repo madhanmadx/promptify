@@ -297,7 +297,9 @@ function startListTicker() {
     if (el && (el.id === 'search' || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return;
     loadList({ silent: true });
     loadStats();
-  }, 20000);
+    // 10s: a participant's entry shows up on the organizer's screen while they
+    // are still looking at the success page, without anyone pressing Refresh
+  }, 10000);
 }
 
 function renderTable() {

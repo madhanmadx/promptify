@@ -182,43 +182,16 @@ router.get('/timer/status', async (req, res) => {
   res.json(timerView(session));
 });
 
-/** Case-insensitive whole-string match with the regex metacharacters escaped. */
-const exact = (value) => {
-  const s = String(value ?? '').trim();
-  return new RegExp(`^${s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
-};
-
 /**
- * One entry per participant — enforced server-side, not just in the UI.
- * A new entry conflicts with an existing one when it is the same person
- * (name + college), the same email, a team member who already entered, or the
- * same device. Returns the blocking submission, or null when the way is clear.
+ * Submissions are unlimited and independent: the same device, name, email or
+ * team may submit as many times as the participant likes. Every POST below
+ * mints a brand-new submissionId from the counter, so a repeat submission
+ * always creates a new document — nothing is ever matched, merged or
+ * overwritten against an earlier one.
+ *
+ * (The old "one entry per participant" block, which rejected repeats with a
+ * 409, has been removed at the organizer's request.)
  */
-async function findExistingEntry(body, deviceToken) {
-  const name = String(body.fullName || '').trim();
-  const college = String(body.college || '').trim();
-  if (!name || !college) return null;
-
-  const conds = [{ fullName: exact(name), college: exact(college) }];
-
-  const email = String(body.email || '').trim();
-  if (email) conds.push({ email: exact(email) });
-
-  if (deviceToken) conds.push({ deviceToken });
-
-  if (body.participation === 'team') {
-    for (const raw of String(body.teamMembers || '').split(/[,;\n]/)) {
-      const member = raw.trim();
-      if (member && member.toLowerCase() !== name.toLowerCase()) {
-        conds.push({ fullName: exact(member), college: exact(college) });
-      }
-    }
-  }
-
-  return Submission.findOne({ $or: conds })
-    .select('submissionId fullName status createdAt')
-    .lean();
-}
 
 /**
  * POST /api/submissions  (multipart/form-data)
@@ -248,17 +221,6 @@ router.post('/submissions', throttle(), (req, res) => {
       if (!file) return res.status(400).json({ error: 'Please upload your artwork (JPG or PNG).' });
 
       const deviceToken = String(req.body.deviceToken || '').trim();
-      const existing = await findExistingEntry(req.body, deviceToken);
-      if (existing) {
-        return res.status(409).json({
-          error:
-            `One entry per participant — an entry for this person already exists as ` +
-            `${existing.submissionId}. Use Check Submission to view it, or contact the ` +
-            `organizer if it needs to be replaced.`,
-          submissionId: existing.submissionId,
-          status: existing.status,
-        });
-      }
 
       // ---- the 30-minute challenge window -------------------------------
       const session = deviceToken ? await TimerSession.findOne({ deviceToken }) : null;

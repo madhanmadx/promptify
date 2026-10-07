@@ -153,24 +153,22 @@ outside the timed flow (demo data, imports) say *Not recorded*.
 
 ---
 
-## One entry per participant
+## Unlimited submissions
 
-`POST /api/submissions` answers `409` when a new upload collides with an entry that already
-exists. The rule is enforced on the server, not merely hidden in the UI:
+A participant may submit as many times as they like. Each `POST /api/submissions` mints a **new**
+`PF-YYYY-NNN` id from the shared counter and writes a **new document** — nothing is matched,
+merged or overwritten against an earlier entry, so the same name, email or device can appear
+several times, each with its own image, timestamp and status.
 
-* **same person** — exact, case-insensitive match on full name + college
-* **same email**, when the participant filled one in
-* **same device** — a `deviceToken` the browser sends with every upload (stored as `pf_device` in
-  `localStorage`)
-* **team member** — anyone listed in `teamMembers` who has already entered on their own
+The server-side 409 conflict check (same person / same email / same device / same team member)
+and the *One entry per participant* card on the submit page were both removed. Reaching the form
+is now unconditional: `#/submit` always renders the four steps, and the receipt's
+**Submit another entry** button wipes the local form, file preview and draft, then opens a fresh
+30-minute window so the next submission starts on a blank page.
 
-The submit page shows a *One entry per participant* card with the existing ID instead of the
-four-step form as soon as this device holds a submission, so nobody fills everything in only to be
-turned away at the last step. That card carries a **Start a new entry** escape hatch for the one
-legitimate case — the organizer deleted an entry and asked the participant to upload again; with
-the old entry gone the server finds no conflict and accepts the new one.
-
-Typing the name in a different case, or from another browser, is still blocked.
+Local storage is used only for the in-progress draft and the device id — it never holds a
+submission. Everything submitted goes to the API and the database, which is what the organizer
+dashboard reads.
 
 ---
 

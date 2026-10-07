@@ -294,7 +294,7 @@ function successView() {
   return `
     <div class="success">
       <div class="success-ring">✓</div>
-      <h2 class="display h2">Submission successful</h2>
+      <h2 class="display h2">Submission Successful!</h2>
       <p class="lead">Your artwork has been submitted to Promptify.</p>
 
       <div class="id-box">
@@ -311,67 +311,15 @@ function successView() {
 
       <div class="notice mt-2">
         Save this ID — it is how you check your status, and how the organizers find your entry.
-        It has also been stored on this device. <strong>One entry per participant.</strong>
+        Your earlier submissions stay exactly as they were:
+        <strong>you can submit as many times as you like.</strong>
       </div>
 
       <div class="form-actions" style="justify-content:center">
+        <button class="btn btn-primary btn-lg" id="againBtn">➕ Submit another entry</button>
         <button class="btn btn-gold btn-lg" id="dlBtn">⬇ Download / save ID</button>
         <a class="btn btn-ghost btn-lg" href="#/check">Check status</a>
         <a class="btn btn-ghost btn-lg" href="#/gallery">Browse the gallery</a>
-      </div>
-    </div>`;
-}
-
-/**
- * Shown instead of the form when this browser already holds an entry.
- * The server enforces the same rule, this just stops people filling in four
- * steps to be turned away at the end.
- */
-function alreadySubmittedView(prior) {
-  const when = prior.createdAt ? new Date(prior.createdAt).toLocaleString('en-GB') : '';
-  return `
-    <div class="page">
-      <div class="container">
-        <div class="page-head center">
-          <span class="eyebrow" style="justify-content:center">Promptify submission portal</span>
-          <h1 class="display">One entry per participant</h1>
-          <p class="lead" style="max-width:560px;margin:0 auto">
-            This device has already submitted an artwork for the challenge.
-          </p>
-        </div>
-
-        <div class="form-card">
-          <div class="card card-pad center">
-            <div style="font-size:52px">🎟️</div>
-
-            <div class="id-box mt-2">
-              <div class="label">Your submission ID</div>
-              <div class="value">${esc(prior.submissionId)}</div>
-            </div>
-
-            <div class="receipt mt-2">
-              ${prior.title ? `<div class="kv"><dt>Artwork</dt><dd>${esc(prior.title)}</dd></div>` : ''}
-              ${when ? `<div class="kv"><dt>Submitted</dt><dd>${when}</dd></div>` : ''}
-              ${prior.status ? `<div class="kv"><dt>Status</dt><dd>${statusBadge(prior.status)}</dd></div>` : ''}
-            </div>
-
-            <div class="notice mt-2" style="text-align:left">
-              Every participant may enter <strong>once</strong>. Use your ID to track verification
-              and judging — or go and look at what everyone else has made.
-            </div>
-
-            <div class="hero-actions mt-3">
-              <a class="btn btn-primary" href="#/check?id=${encodeURIComponent(prior.submissionId)}">Check status</a>
-              <a class="btn btn-ghost" href="#/gallery">Browse the gallery</a>
-              <a class="btn btn-ghost" href="#/">Home</a>
-            </div>
-
-            <p class="muted small mt-3 mb-0">
-              Asked by the organizer to submit again?
-              <button class="btn btn-ghost btn-sm" id="startOver">Start a new entry</button>
-            </p>
-          </div>
-        </div>
       </div>
     </div>`;
 }
@@ -682,13 +630,20 @@ async function submitEntry(btn) {
     const res = await api.upload('/submissions', fd);
     state.result = res;
     store.lastSubmission = res;
+    // the receipt replaces the form, so wipe the used-up inputs at the same
+    // moment: coming back to #/submit later must show a blank form, never the
+    // details or the image of the entry that was just accepted
+    state.file = null;
+    state.fileUrl = '';
+    state.agree = false;
+    state.data = { ...blank };
     clearDraft();
     stopTicker();
     state.timer = null;
     state.step = 3;
     history.replaceState(null, '', '#/submit?done=1');
     render();
-    toast(`Submission received — ${res.submissionId}`, 'success');
+    toast(`Submission Successful! ${res.submissionId}`, 'success');
   } catch (err) {
     // the server owns the deadline: it can expire mid-upload
     state.submitError = err.data?.expired
@@ -703,6 +658,24 @@ async function submitEntry(btn) {
   } finally {
     setLoading(btn, false);
   }
+}
+
+/**
+ * "Submit another entry" — throw away everything from the submission that was
+ * just accepted (form values, file, preview, draft) and open a brand-new
+ * 30-minute window so the participant can go straight to a blank form.
+ * Nothing from the previous entry is reused or overwritten: the server has
+ * already given it its own id, and this only resets the local view.
+ */
+async function startAnother(root) {
+  root.dataset.fresh = '1';
+  try {
+    await api.post('/timer/start', { deviceToken: store.deviceId });
+  } catch {
+    /* offline: the timer gate at the bottom of submit() will ask to start */
+  }
+  if (location.hash.startsWith('#/submit?')) history.replaceState(null, '', '#/submit');
+  await submit(root);
 }
 
 function render() {
@@ -739,6 +712,11 @@ function render() {
 
   if (state.step === 3 && state.result) {
     document.getElementById('dlBtn').addEventListener('click', () => downloadReceipt(state.result));
+    document.getElementById('againBtn')?.addEventListener('click', (e) => {
+      const btn = e.currentTarget;
+      setLoading(btn, true, 'Starting…');
+      startAnother(root).finally(() => setLoading(btn, false));
+    });
     return;
   }
 
@@ -796,29 +774,9 @@ export async function submit(root, params = {}) {
     delete root.dataset.fresh;
   }
 
-  // One entry per participant — this browser already holds an entry, so show
-  // it instead of four more steps of form filling.
-  const prior = store.lastSubmission;
-  if (!done && prior?.submissionId) {
-    root.innerHTML = alreadySubmittedView(prior);
-    root.querySelector('#startOver')?.addEventListener('click', () => {
-      store.lastSubmission = null;
-      clearDraft();
-      state.result = null;
-      state.submitError = null;
-      state.step = 0;
-      state.file = null;
-      state.fileUrl = '';
-      state.agree = false;
-      state.data = { ...blank };
-      toast('Starting a fresh entry — only do this if the organizer asked you to.', 'info');
-      submit(root, params);
-    });
-    return;
-  }
-
-  // Straight after a successful upload the session is already spent — show the
-  // receipt, not the clock.
+  // Repeat submissions are allowed: holding an earlier ID in this browser
+  // never blocks the form. The receipt is shown only while ?done=1 is in the
+  // URL, so simply reopening #/submit always gives a clean form.
   if (done && state.result) {
     render();
     return;

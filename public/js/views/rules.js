@@ -46,9 +46,9 @@ export async function rules(root) {
         <div style="max-width:860px">
           ${section('01', 'Eligibility & entry', ul([
             'Open to currently enrolled students — carry your college ID on event day.',
-            'One entry per participant, or one entry per team (max 4 members per team).',
+            'Enter as many times as you like — each submission stands alone as its own entry (max 4 members per team).',
             'Register through the submission portal only. Google Forms and WhatsApp entries are not accepted.',
-            'You will receive a unique <strong>PF-YYYY-NNN</strong> submission ID — keep it safe.',
+            'Every submission gets its own unique <strong>PF-YYYY-NNN</strong> ID — keep them all.',
           ]))}
 
           ${section('02', 'Artwork requirements', ul([
