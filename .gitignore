@@ -14,3 +14,4 @@ data/
 npm-debug.log*
 Thumbs.db
 .DS_Store
+logs/
