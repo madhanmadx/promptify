@@ -30,6 +30,7 @@ async function ensureAuth(root) {
       heading: 'Promptify Judging',
       sub: 'Blinded scoring — identities stay hidden until judging closes.',
       demoHint: 'Demo credentials: <strong>judge1</strong> (or judge2 / judge3) / <strong>judge2026</strong>',
+      demoCreds: { username: 'judge1', password: 'judge2026' },
     });
     if (!res) return null;
   }

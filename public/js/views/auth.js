@@ -8,7 +8,7 @@ import { esc, toast, setLoading } from '../ui.js';
  * The caller may pass `demoHint`, but it is only rendered when the server says
  * hints are allowed (`LOGIN_HINTS`) so live events never publish a password.
  */
-export async function requireAuth(root, { role, heading, sub, demoHint }) {
+export async function requireAuth(root, { role, heading, sub, demoHint, demoCreds }) {
   let hintsOn = false;
   try {
     hintsOn = Boolean((await getMeta()).loginHints);
@@ -47,7 +47,10 @@ export async function requireAuth(root, { role, heading, sub, demoHint }) {
               </form>
             </div>
 
-            ${showHint ? `<div class="notice mt-2" style="text-align:center">${demoHint}</div>` : ''}
+            ${showHint ? `<div class="notice mt-2" style="text-align:center">
+              ${demoHint}
+              ${demoCreds ? `<button type="button" class="btn btn-ghost btn-sm mt-1" id="fillCreds">🔑 Fill these in</button>` : ''}
+            </div>` : ''}
 
             <p class="center muted small mt-2">
               ${role === 'admin'
@@ -94,5 +97,16 @@ export async function requireAuth(root, { role, heading, sub, demoHint }) {
         setLoading(btn, false);
       }
     });
+
+    // Mistyping a password is the #1 way a login fails at a live event —
+    // offer a button that fills the credentials the server is showing anyway.
+    if (showHint && demoCreds) {
+      root.querySelector('#fillCreds')?.addEventListener('click', () => {
+        root.querySelector('#username').value = demoCreds.username;
+        root.querySelector('#password').value = demoCreds.password;
+        err.style.display = 'none';
+        root.querySelector('#password').focus();
+      });
+    }
   });
 }

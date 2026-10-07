@@ -57,6 +57,7 @@ async function ensureAuth(root) {
       heading: 'Promptify Admin',
       sub: 'Restricted area — organizer access only.',
       demoHint: 'Demo credentials: <strong>admin</strong> / <strong>promptify2026</strong>',
+      demoCreds: { username: 'admin', password: 'promptify2026' },
     });
     if (!res) return null;
   }

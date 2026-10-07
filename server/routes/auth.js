@@ -18,7 +18,18 @@ router.post('/login', async (req, res) => {
   const name = String(username).trim().toLowerCase();
   const secret = String(password).trim();
 
-  const user = await User.findOne({ username: name });
+  // A database blip must NEVER be reported as "wrong password" — that sends
+  // organizers hunting for a typo that isn't there. Say what actually happened.
+  let user;
+  try {
+    user = await User.findOne({ username: name });
+  } catch (e) {
+    console.error('✖ login could not reach the database:', e.message);
+    return res
+      .status(503)
+      .json({ error: 'Cannot reach the database right now — wait a few seconds and try again.' });
+  }
+
   const ok = user && user.active && (await bcrypt.compare(secret, user.passwordHash));
   if (!ok) {
     // Server-side reason only — never log or return which half was wrong.
@@ -27,8 +38,14 @@ router.post('/login', async (req, res) => {
     return res.status(401).json({ error: 'Invalid username or password.' });
   }
 
-  user.lastLoginAt = new Date();
-  await user.save();
+  // Recording the sign-in time is nice-to-have; a hiccup here must not cost
+  // the organizer a working session.
+  try {
+    user.lastLoginAt = new Date();
+    await user.save();
+  } catch (e) {
+    console.warn('⚠ could not record lastLoginAt:', e.message);
+  }
 
   res.json({
     token: signToken(user),
