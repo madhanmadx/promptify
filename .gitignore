@@ -1,5 +1,16 @@
-node_modules/ 
-.env 
-.env.* 
+# Dependencies
+node_modules/
 
-# Local MongoDB files — never commit the databasedata/
+# Secrets â€” never commit (Atlas credentials live here)
+.env
+.env.*
+!.env.example
+
+# Local MongoDB database files (300+ MB of WiredTiger binaries)
+data/
+
+# Logs / OS noise
+*.log
+npm-debug.log*
+Thumbs.db
+.DS_Store
