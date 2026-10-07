@@ -18,6 +18,7 @@ const state = {
   fileUrl: '',
   agree: false,
   result: null,
+  submitError: null,   // sticky failure message (a fading toast is easy to miss)
   data: { ...blank },
   // ---- 30-minute challenge window -------------------------------------
   timer: null,        // last /timer/status payload from the server
@@ -271,6 +272,11 @@ function previewStep() {
         </span>
       </label>
 
+      ${state.submitError
+        ? `<div class="notice danger" role="alert" style="margin-top:14px">
+             <strong>⚠️ Your entry has NOT been sent</strong><br />${esc(state.submitError)}
+           </div>`
+        : ''}
       <div class="form-actions">
         <button class="btn btn-ghost btn-lg" id="goBack">← Edit</button>
         <button class="btn btn-primary btn-lg" id="submitBtn"
@@ -671,6 +677,7 @@ async function submitEntry(btn) {
   fd.append('artwork', state.file, state.file.name);
 
   setLoading(btn, true, 'Submitting…');
+  state.submitError = null;
   try {
     const res = await api.upload('/submissions', fd);
     state.result = res;
@@ -684,11 +691,14 @@ async function submitEntry(btn) {
     toast(`Submission received — ${res.submissionId}`, 'success');
   } catch (err) {
     // the server owns the deadline: it can expire mid-upload
+    state.submitError = err.data?.expired
+      ? 'Your 30 minutes ran out before the upload finished. Start a new session and try again.'
+      : err.message;
     if (err.data?.expired) {
       state.timerExpired = true;
       stopTicker();
-      render();
     }
+    render(); // keep the reason on screen — a toast alone is too easy to miss
     toast(err.message, 'error');
   } finally {
     setLoading(btn, false);
@@ -769,12 +779,14 @@ export async function submit(root, params = {}) {
   const done = Boolean(params.query?.get('done'));
   if (!done) {
     state.result = null;
+    state.submitError = null;
     if (state.step === 3) state.step = 0;
   }
 
   // "submit another entry" starts from a completely fresh state
   if (root.dataset.fresh === '1') {
     state.result = null;
+    state.submitError = null;
     state.step = 0;
     state.file = null;
     state.fileUrl = '';
@@ -793,6 +805,7 @@ export async function submit(root, params = {}) {
       store.lastSubmission = null;
       clearDraft();
       state.result = null;
+      state.submitError = null;
       state.step = 0;
       state.file = null;
       state.fileUrl = '';

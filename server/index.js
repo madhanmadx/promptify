@@ -32,6 +32,28 @@ app.use((_req, res, next) => {
 
 app.use('/api', loadUser);
 
+// Audit every API write. At a live event the question is always "did the
+// participant's entry arrive?" — so record status, the server's own message
+// and where it came from, for successes AND rejections alike.
+app.use('/api', (req, res, next) => {
+  if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) return next();
+  const t0 = Date.now();
+  const original = res.json.bind(res);
+  res.json = (body) => {
+    try {
+      const ok = res.statusCode < 400;
+      const detail =
+        (body && (body.error || body.submissionId || body.username || body.message)) || '';
+      const line = `${ok ? '✓' : '✖'} ${req.method} ${req.baseUrl}${req.path} ${res.statusCode} ${detail} · ${req.ip} · ${Date.now() - t0}ms`;
+      (ok ? console.log : console.warn)(line);
+    } catch {
+      /* logging must never break a response */
+    }
+    return original(body);
+  };
+  next();
+});
+
 app.get('/api/health', (_req, res) =>
   res.json({ ok: true, event: config.event.name, time: new Date().toISOString() })
 );

@@ -99,7 +99,10 @@ export async function connectDB() {
     for (let attempt = 1; attempt <= attempts; attempt++) {
       try {
         await mongoose.connect(config.mongoUri, { serverSelectionTimeoutMS: 15000 });
-        console.log('✔ Connected to MongoDB (MONGODB_URI)');
+        // Print WHICH database: two instances quietly writing to different
+        // databases cost an event its entries once already.
+        const dbName = mongoose.connection?.db?.databaseName || 'unknown';
+        console.log(`✔ Connected to MongoDB → database "${dbName}"`);
         return;
       } catch (err) {
         lastErr = err;
