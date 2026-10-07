@@ -21,7 +21,7 @@ export async function qrBoard(root) {
          <strong>This code will not open on a phone.</strong>
          It points at <code>localhost</code> — that is <em>the phone's own</em> computer,
          so scanning shows nothing. Set <code>PUBLIC_URL</code> in <code>.env</code> to this
-         machine's Wi-Fi address (e.g. <code>http://10.219.179.143:3000</code>), restart the
+         machine's address (e.g. <code>http://192.168.1.50:3000</code>), restart the
          server and reload this page.
        </div>`
     : '';

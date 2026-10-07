@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import path from 'node:path';
+import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -82,13 +83,53 @@ export const statusKeys = config.statuses.map((s) => s.key);
 export const ART_VERSION = '2';
 export const artUrl = (id) => `/api/artwork/${encodeURIComponent(id)}?v=${ART_VERSION}`;
 
+const isIPv4 = (s) => /^\d{1,3}(\.\d{1,3}){3}$/.test(String(s));
+
+/** Every non-loopback IPv4 this machine currently holds. */
+function localIPv4s() {
+  const out = [];
+  for (const list of Object.values(os.networkInterfaces())) {
+    for (const iface of list || []) {
+      if ((iface.family === 'IPv4' || iface.family === 4) && !iface.internal) out.push(iface.address);
+    }
+  }
+  return out;
+}
+
 /**
- * The URL a phone must type to reach this server.
+ * The URL a phone must type to reach this server — what goes into the QR code.
  *
- * PUBLIC_URL wins — it is the only way a printed QR code can work, because a
- * page served from `localhost` encodes the *scanner's own* localhost. Falls
- * back to the request's host for local development.
+ * Priority:
+ *   1. PUBLIC_URL, but only while it still points at *this* machine. DHCP hands
+ *      out a new address every time you join a different hotspot, and a stale
+ *      one prints a dead link on every poster — so an IP that is no longer ours
+ *      is ignored (with a warning) rather than encoded.
+ *   2. The host the organizer is browsing from, if it is not loopback — always
+ *      current, because they had to reach us through it.
+ *   3. This machine's first LAN address.
+ *   4. localhost (development only — phones can never use this).
  */
-export const baseUrl = (req) =>
-  config.publicUrl ||
-  (req ? `${req.protocol}://${req.get('host')}` : `http://localhost:${config.port}`);
+export function baseUrl(req) {
+  const configured = config.publicUrl;
+  if (configured) {
+    let hostname = '';
+    try {
+      hostname = new URL(configured).hostname;
+    } catch {
+      hostname = '';
+    }
+    if (!hostname || !isIPv4(hostname) || localIPv4s().includes(hostname)) return configured;
+    console.warn(`⚠ PUBLIC_URL points at ${hostname}, which this machine no longer has — ignoring it`);
+  }
+
+  if (req) {
+    const host = req.get('host');
+    if (host && !/^(localhost|127\.0\.0\.1|\[::1\])(:|$)/i.test(host)) {
+      return `${req.protocol}://${host}`;
+    }
+  }
+
+  const ip = localIPv4s()[0];
+  if (ip) return `http://${ip}:${config.port}`;
+  return `http://localhost:${config.port}`;
+}

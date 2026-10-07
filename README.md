@@ -210,6 +210,42 @@ Judging automatically advances an entry to *Judging Completed* once the required
 
 ---
 
+## Deploying (so anyone can scan the QR)
+
+Running on a laptop means the QR encodes a **private** address
+(`http://10.x.x.x:3000`) — only phones on that same Wi‑Fi/hotspot can open it;
+everyone else gets *"site can't be reached"*. For the event, give it a public URL.
+
+### Render (free · blueprint included)
+
+1. Push this repo to GitHub.
+2. Render → **New → Blueprint** → pick the repo. It reads `render.yaml`.
+3. Fill the two values marked `sync: false`:
+   - `MONGODB_URI` — your Atlas string **with a database name** (`…/promptify`)
+   - `ADMIN_PASSWORD` — the organizer password
+4. After the first deploy, set `PUBLIC_URL` to the real service URL
+   (Settings → Environment) and redeploy — that is exactly what the QR encodes.
+5. Open `https://your-app.onrender.com/#/qr` and confirm the link printed
+   *under* the code before you print the board.
+
+Health check endpoint: `GET /api/health`.
+
+### Anywhere else
+
+`npm ci && npm start` with the variables from `.env.example` set. Node ≥ 18.11.
+
+| Must set | Why |
+| --- | --- |
+| `PUBLIC_URL` | the QR encodes it — leave blank only behind a proxy |
+| `MONGODB_URI` with a database name (`/promptify`) | never land in another app's database |
+| `JWT_SECRET` | the dev value is public on GitHub |
+| `LOGIN_HINTS=false` | never print a password on a public site |
+
+> The 30-minute clock and the one-entry rule are enforced **server-side**, so a
+> public deployment behaves exactly like the local one.
+
+---
+
 ## Project structure
 
 ```

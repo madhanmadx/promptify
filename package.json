@@ -5,6 +5,9 @@
   "type": "module",
   "description": "Promptify — AI Image Generation Challenge submission, verification & judging system",
   "main": "server/index.js",
+  "engines": {
+    "node": ">=18.11"
+  },
   "scripts": {
     "start": "node server/index.js",
     "dev": "node --watch server/index.js",

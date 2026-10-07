@@ -91,9 +91,24 @@ export async function connectDB() {
   }
 
   if (config.mongoUri) {
-    await mongoose.connect(config.mongoUri, { serverSelectionTimeoutMS: 15000 });
-    console.log('✔ Connected to MongoDB (MONGODB_URI)');
-    return;
+    // A network blip during boot (venue Wi-Fi, mobile hotspot, VPN) used to
+    // exit the whole process — which is exactly how the QR board went dark.
+    // Retry with backoff so a transient timeout never takes the event down.
+    const attempts = 5;
+    let lastErr;
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+      try {
+        await mongoose.connect(config.mongoUri, { serverSelectionTimeoutMS: 15000 });
+        console.log('✔ Connected to MongoDB (MONGODB_URI)');
+        return;
+      } catch (err) {
+        lastErr = err;
+        const reason = String(err.message || err).split('\n')[0].slice(0, 120);
+        console.warn(`⚠ MongoDB unreachable (attempt ${attempt}/${attempts}): ${reason}`);
+        if (attempt < attempts) await wait(5000);
+      }
+    }
+    throw lastErr;
   }
 
   try {
