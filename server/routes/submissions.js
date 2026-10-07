@@ -360,7 +360,7 @@ const canBeReset = (status) => status === STATUS.SUBMITTED || status === STATUS.
  * way a phone which lost its storage can still recover its own entry, while
  * a stranger cannot delete someone else's work by guessing an ID.
  */
-router.post('/submissions/reset', throttle(6), async (req, res) => {
+router.post('/submissions/reset', throttle(10), async (req, res) => {
   try {
     const id = String(req.body?.submissionId || '').trim().toUpperCase();
     if (!id) return res.status(400).json({ error: 'Submission ID is required.' });
