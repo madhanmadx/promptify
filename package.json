@@ -1,0 +1,26 @@
+{
+  "name": "promptify",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Promptify — AI Image Generation Challenge submission, verification & judging system",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "seed": "node server/seed.js --demo",
+    "reset": "node server/seed.js --wipe"
+  },
+  "dependencies": {
+    "archiver": "^7.0.1",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2",
+    "mongodb-memory-server": "^10.1.2",
+    "mongoose": "^8.5.0",
+    "multer": "^2.4.0",
+    "qrcode": "^1.5.4"
+  }
+}

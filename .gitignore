@@ -1,0 +1,5 @@
+node_modules/ 
+.env 
+.env.* 
+
+# Local MongoDB files — never commit the databasedata/
