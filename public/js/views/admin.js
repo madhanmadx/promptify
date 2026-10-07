@@ -36,6 +36,8 @@ const state = {
   sessionInfo: null,
   sessionTick: null,
   sessionAge: 0,
+  // ---- live table refresh ----
+  listTick: null,
 };
 
 /* ------------------------------------------------------------ auth guard */
@@ -273,6 +275,28 @@ function startSessionTicker() {
       el.classList.toggle('is-warn', left > 60000 && left <= 5 * 60000);
     });
   }, 1000);
+}
+
+/**
+ * Pulls new submissions in every 20 s so the organizer never stares at a stale
+ * table wondering why an entry "didn't show up". It steps aside whenever an
+ * entry is open, a dialog is up, or a filter is being typed, and stops itself
+ * the moment the dashboard unmounts.
+ */
+function startListTicker() {
+  if (state.listTick) clearInterval(state.listTick);
+  state.listTick = setInterval(() => {
+    if (!document.getElementById('tableHost')) {
+      clearInterval(state.listTick);
+      state.listTick = null;
+      return;
+    }
+    if (state.selected || document.querySelector('.modal-root:not([hidden])')) return;
+    const el = document.activeElement;
+    if (el && (el.id === 'search' || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return;
+    loadList({ silent: true });
+    loadStats();
+  }, 20000);
 }
 
 function renderTable() {
@@ -575,16 +599,24 @@ async function loadStats() {
   }
 }
 
-async function loadList() {
-  state.loading = true;
-  renderTable();
+/**
+ * Loads the table. `silent` is for the auto-refresh: it leaves the current rows
+ * on screen (no "Loading…" flash) and swallows errors instead of toasting them
+ * on every tick.
+ */
+async function loadList({ silent = false } = {}) {
+  if (!silent) {
+    state.loading = true;
+    renderTable();
+  }
   try {
     const res = await api.get(`/admin/submissions${qs({ status: state.status, q: state.q, page: state.page, limit: 15 })}`);
     state.items = res.items;
     state.total = res.total;
     state.pages = res.pages;
   } catch (e) {
-    toast(e.message, 'error');
+    if (silent) console.warn('auto-refresh skipped:', e.message);
+    else toast(e.message, 'error');
   } finally {
     state.loading = false;
     renderTable();
@@ -843,4 +875,5 @@ export async function admin(root) {
 
   await Promise.all([loadStats(), loadList(), loadSessions()]);
   startSessionTicker();
+  startListTicker();
 }
