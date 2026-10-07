@@ -32,6 +32,26 @@ app.use((_req, res, next) => {
 
 app.use('/api', loadUser);
 
+// Access log: which devices are actually talking to us, and from where.
+// The write-audit below only sees requests that REACH a handler — this one
+// catches the GETs, so a phone that loads the page but never manages to
+// submit still leaves a trail (and its IP).
+app.use('/api', (req, res, next) => {
+  const t0 = Date.now();
+  res.on('finish', () => {
+    if (req.path === '/health') return;
+    console.log(`→ ${req.method} ${req.baseUrl}${req.path} ${res.statusCode} ${req.ip} ${Date.now() - t0}ms`);
+  });
+  // a request that reaches us but never completes — a phone that gave up
+  // mid-upload looks exactly like "cannot reach the server" on its screen,
+  // and would otherwise leave no trace at all
+  res.on('close', () => {
+    if (res.writableEnded || req.path === '/health') return;
+    console.log(`✗ ${req.method} ${req.baseUrl}${req.path} DROPPED ${req.ip} after ${Date.now() - t0}ms`);
+  });
+  next();
+});
+
 // Audit every API write. At a live event the question is always "did the
 // participant's entry arrive?" — so record status, the server's own message
 // and where it came from, for successes AND rejections alike.

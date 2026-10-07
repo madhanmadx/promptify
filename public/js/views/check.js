@@ -1,5 +1,5 @@
 import { api, store } from '../api.js';
-import { esc, statusBadge, toast, setLoading, fmtDate } from '../ui.js';
+import { esc, statusBadge, toast, setLoading, fmtDate, confirmDialog, modal } from '../ui.js';
 
 const FLOW = [
   { key: 'submitted', label: 'Submitted', ico: '🟡', note: 'We received your entry and it is queued for review.' },
@@ -149,11 +149,81 @@ export async function check(root, params = {}) {
 
         ${timeline(res.status)}
         ${ownedBit}
+        ${res.canReset ? `
+          <div class="center mt-3">
+            <button class="btn btn-danger btn-sm" id="resetBtn">↺ Reset &amp; resubmit</button>
+            <p class="muted small mt-1 mb-0">Uploaded the wrong file or typed something wrong? Delete this entry and send it again.</p>
+          </div>` : ''}
       </div>
       ${res.owned && res.details ? detailsCard(res, res.artworkUrl) : ''}
       <div class="center mt-3">
         <a class="btn btn-ghost btn-sm" href="#/submit">Submit another entry</a>
       </div>`;
+
+    out.querySelector('#resetBtn')?.addEventListener('click', () => startReset(res));
+  }
+
+  /**
+   * Withdraw the entry so the participant can make a new one. The submitting
+   * device or the success-screen token proves ownership directly; from any
+   * other phone we ask for the name + college printed on the entry.
+   */
+  async function startReset(res) {
+    const send = async (payload) => {
+      try {
+        const r = await api.post('/submissions/reset', { submissionId: res.submissionId, ...payload });
+        store.lastSubmission = null;
+        toast(`${r.submissionId} was reset — you can submit again.`, 'success');
+        out.innerHTML = '';
+        location.hash = '#/submit';
+        return true;
+      } catch (err) {
+        toast(err.message, 'error');
+        return false;
+      }
+    };
+
+    if (res.owned) {
+      const ok = await confirmDialog(
+        `Delete ${res.submissionId}? Its artwork is removed and you start from a fresh 30-minute window. Nothing is kept — this cannot be undone.`,
+        { title: 'Reset this entry?', confirmText: 'Reset & resubmit', danger: true }
+      );
+      if (ok) await send({ token: store.lastSubmission?.checkToken || '', deviceToken: store.deviceId });
+      return;
+    }
+
+    const close = modal({
+      title: `Reset ${esc(res.submissionId)}`,
+      body: `
+        <p class="muted" style="margin-top:0">
+          Enter the details exactly as they appear on the entry to prove it is yours.
+          The entry is then deleted so you can upload it again.
+        </p>
+        <div class="field">
+          <label for="rName">Full name</label>
+          <input class="input" id="rName" autocomplete="off" />
+        </div>
+        <div class="field">
+          <label for="rCollege">College</label>
+          <input class="input" id="rCollege" autocomplete="off" />
+        </div>`,
+      foot: `
+        <button class="btn btn-ghost btn-sm" data-close>Cancel</button>
+        <button class="btn btn-danger btn-sm" id="rGo">Reset entry</button>`,
+    });
+
+    document.getElementById('rGo')?.addEventListener('click', async (e) => {
+      const fullName = document.getElementById('rName')?.value.trim();
+      const college = document.getElementById('rCollege')?.value.trim();
+      if (!fullName || !college) {
+        toast('Enter both the name and the college.', 'error');
+        return;
+      }
+      setLoading(e.currentTarget, true, 'Resetting…');
+      const done = await send({ fullName, college });
+      if (done) close();
+      else setLoading(e.currentTarget, false);
+    });
   }
 
   btn.addEventListener('click', run);

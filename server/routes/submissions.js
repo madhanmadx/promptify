@@ -345,6 +345,60 @@ router.post('/submissions', throttle(), (req, res) => {
   });
 });
 
+/** Only an entry no organizer has reviewed yet can be pulled by its maker. */
+const canBeReset = (status) => status === STATUS.SUBMITTED || status === STATUS.VERIFYING;
+
+/**
+ * POST /api/submissions/reset  { submissionId, token?, deviceToken?, fullName?, college? }
+ * Lets the person who made an entry withdraw it so they can submit again —
+ * wrong file, wrong college, a half-finished attempt. "One entry per
+ * participant" still holds: the old row is gone before a new one is allowed,
+ * because the uniqueness check simply queries this collection.
+ *
+ * Proof of ownership is the submitting device, the check token from the
+ * success screen, or the name + college printed on the entry itself — that
+ * way a phone which lost its storage can still recover its own entry, while
+ * a stranger cannot delete someone else's work by guessing an ID.
+ */
+router.post('/submissions/reset', throttle(6), async (req, res) => {
+  try {
+    const id = String(req.body?.submissionId || '').trim().toUpperCase();
+    if (!id) return res.status(400).json({ error: 'Submission ID is required.' });
+
+    const doc = await Submission.findOne({ submissionId: id });
+    if (!doc) return res.status(404).json({ error: 'No submission found with that ID.' });
+
+    if (!canBeReset(doc.status)) {
+      return res.status(409).json({
+        error: `${doc.submissionId} is already "${doc.status}" and can no longer be reset. Please contact the event desk.`,
+        status: doc.status,
+      });
+    }
+
+    const eq = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+    const owns =
+      Boolean(req.body.token) && req.body.token === doc.checkToken ||
+      Boolean(req.body.deviceToken) && eq(req.body.deviceToken, doc.deviceToken) ||
+      (eq(req.body.fullName, doc.fullName) && eq(req.body.college, doc.college));
+
+    if (!owns) {
+      return res.status(403).json({
+        error:
+          'To reset an entry, open this page on the device you submitted from, or type the ' +
+          'name and college exactly as they appear on the entry.',
+        needsProof: true,
+      });
+    }
+
+    await Submission.deleteOne({ _id: doc._id });
+    console.log(`↺ reset ${doc.submissionId} — ${doc.fullName} (${doc.college}) may submit again`);
+    res.json({ ok: true, submissionId: doc.submissionId });
+  } catch (error) {
+    console.error('reset error:', error);
+    res.status(500).json({ error: 'Could not reset the entry. Please try again.' });
+  }
+});
+
 /**
  * GET /api/submissions/check/:id?token=...
  * Without the token you only get the public status. With it you see everything.
@@ -363,6 +417,8 @@ router.get('/submissions/check/:id', async (req, res) => {
     submittedAt: doc.createdAt,
     artworkUrl: artUrl(`${doc.submissionId}`),
     owned: Boolean(tokenMatches),
+    // an entry nobody has reviewed yet can still be pulled and redone
+    canReset: canBeReset(doc.status),
   };
 
   if (!tokenMatches) return res.json(base);
